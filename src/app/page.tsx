@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Meteors } from '@/components/ui/meteors'
 import { Highlighter } from '@/components/ui/highlighter'
 import { StaggeredMenu, type DialogType } from '@/components/staggered-menu'
@@ -51,6 +52,28 @@ export default function Home() {
       <MyBottlesDialog open={openDialog === 'my-bottles'} onOpenChange={(open) => !open && handleCloseDialog()} />
       <BeachDialog open={openDialog === 'beach'} onOpenChange={(open) => !open && handleCloseDialog()} />
       <ProfileDialog open={openDialog === 'profile'} onOpenChange={(open) => !open && handleCloseDialog()} />
+
+      {/* 頁尾 */}
+      <footer className="absolute bottom-0 left-0 right-0 z-10 py-4 text-center">
+        <div className="flex items-center justify-center gap-4 text-sm text-white/50">
+          <Link href="/terms" className="transition-colors hover:text-white/80">
+            服務條款
+          </Link>
+          <span>·</span>
+          <Link href="/privacy" className="transition-colors hover:text-white/80">
+            隱私政策
+          </Link>
+          <span>·</span>
+          <a
+            href="https://github.com/dianyike/starry-envelope"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-white/80"
+          >
+            GitHub
+          </a>
+        </div>
+      </footer>
     </div>
   )
 }
