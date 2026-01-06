@@ -57,11 +57,12 @@ export interface Bottle {
   relay_count: number
   current_holder_id: string | null
   status: BottleStatus
+  likes_count: number
   created_at: string
 }
 
 // 明確列出要查詢的欄位（不含 secret_code）
-const BOTTLE_SELECT_FIELDS = 'id, author_id, author_name, content, image_url, bottle_type, city, is_pushable, relay_count, current_holder_id, status, created_at'
+const BOTTLE_SELECT_FIELDS = 'id, author_id, author_name, content, image_url, bottle_type, city, is_pushable, relay_count, current_holder_id, status, likes_count, created_at'
 
 async function ensureUserProfile(supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never, userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -629,4 +630,75 @@ export async function getRelayBottleReplies(bottleId: string): Promise<Reply[]> 
     .limit(100) // 限制最多 100 則回覆
 
   return (data || []) as Reply[]
+}
+
+// 點讚/取消點讚
+export async function toggleLikeBottle(bottleId: string): Promise<{ liked: boolean; likesCount: number } | { error: string }> {
+  const supabase = await createClient()
+  const userId = await getAuthUserId(supabase)
+
+  if (!userId) {
+    return { error: '請先登入' }
+  }
+
+  // 檢查是否已點讚
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (supabase as any)
+    .from('bottle_interactions')
+    .select('id')
+    .eq('bottle_id', bottleId)
+    .eq('user_id', userId)
+    .eq('interaction_type', 'liked')
+    .single()
+
+  if (existing) {
+    // 已點讚 → 取消點讚（刪除記錄，trigger 會自動 -1）
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('bottle_interactions')
+      .delete()
+      .eq('id', existing.id)
+  } else {
+    // 未點讚 → 新增點讚（trigger 會自動 +1）
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('bottle_interactions')
+      .insert({
+        bottle_id: bottleId,
+        user_id: userId,
+        interaction_type: 'liked',
+      })
+  }
+
+  // 取得最新的 likes_count
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bottle } = await (supabase as any)
+    .from('bottles')
+    .select('likes_count')
+    .eq('id', bottleId)
+    .single()
+
+  revalidatePath('/fish')
+  return { liked: !existing, likesCount: bottle?.likes_count ?? 0 }
+}
+
+// 檢查是否已點讚
+export async function hasLikedBottle(bottleId: string): Promise<boolean> {
+  const supabase = await createClient()
+  const userId = await getAuthUserId(supabase)
+
+  if (!userId) {
+    return false
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase as any)
+    .from('bottle_interactions')
+    .select('id')
+    .eq('bottle_id', bottleId)
+    .eq('user_id', userId)
+    .eq('interaction_type', 'liked')
+    .single()
+
+  return !!data
 }

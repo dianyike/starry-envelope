@@ -35,7 +35,7 @@ import {
   type BottleWithReplies,
 } from '@/lib/actions/bottle'
 import { triggerNavbarRefresh } from '@/components/staggered-menu'
-import { BottleWine } from 'lucide-react'
+import { BottleWine, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 
 const BOTTLE_TYPE_LABELS: Record<string, string> = {
@@ -191,7 +191,11 @@ export function MyBottlesDialog({ open, onOpenChange }: MyBottlesDialogProps) {
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Heart className={`h-4 w-4 ${bottle.likes_count > 0 ? 'fill-red-500 text-red-500' : ''}`} />
+                          {bottle.likes_count}
+                        </span>
                         {bottle.replies.length > 0 && (
                           <span className="text-sm text-muted-foreground">
                             {bottle.replies.length} 則回覆

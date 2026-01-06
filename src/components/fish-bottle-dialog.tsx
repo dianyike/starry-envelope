@@ -21,11 +21,14 @@ import {
   throwBackBottle,
   dislikeBottle,
   reportBottle,
+  toggleLikeBottle,
+  hasLikedBottle,
   type Bottle,
   type Reply,
 } from '@/lib/actions/bottle'
 import { toast } from 'sonner'
-import { FishingHook, RefreshCw } from 'lucide-react'
+import { FishingHook, RefreshCw, Heart } from 'lucide-react'
+import { motion } from 'motion/react'
 
 const BOTTLE_TYPE_LABELS: Record<string, string> = {
   normal: '普通瓶',
@@ -51,6 +54,9 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
   const [secretCode, setSecretCode] = useState('')
   const [relayReplies, setRelayReplies] = useState<Reply[]>([])
   const [isLoadingReplies, setIsLoadingReplies] = useState(false)
+  const [hasLiked, setHasLiked] = useState(false)
+  const [likesCount, setLikesCount] = useState(0)
+  const [isLiking, setIsLiking] = useState(false)
 
   // 撈到傳遞瓶時載入對話鏈
   useEffect(() => {
@@ -83,6 +89,10 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
       }
     } else {
       setBottle(result.data)
+      setLikesCount(result.data.likes_count)
+      // 檢查是否已點讚
+      const liked = await hasLikedBottle(result.data.id)
+      setHasLiked(liked)
       toast.success(code ? '找到暗號瓶了！' : '撈到一個瓶子！')
     }
     setIsLoading(false)
@@ -130,11 +140,32 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
     setBottle(null)
   }
 
+  async function handleLike() {
+    if (!bottle || isLiking) return
+    setIsLiking(true)
+    // Optimistic update
+    const previousLiked = hasLiked
+    const previousCount = likesCount
+    setHasLiked(!hasLiked)
+    setLikesCount(hasLiked ? likesCount - 1 : likesCount + 1)
+
+    const result = await toggleLikeBottle(bottle.id)
+    if ('error' in result) {
+      // Rollback on error
+      setHasLiked(previousLiked)
+      setLikesCount(previousCount)
+      toast.error(result.error)
+    }
+    setIsLiking(false)
+  }
+
   function handleClose(isOpen: boolean) {
     if (!isOpen) {
       setBottle(null)
       setReply('')
       setSecretCode('')
+      setHasLiked(false)
+      setLikesCount(0)
     }
     onOpenChange(isOpen)
   }
@@ -193,6 +224,26 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
               <p className="whitespace-pre-wrap rounded-lg bg-muted/50 p-4 text-base">
                 {bottle.content}
               </p>
+
+              {/* 愛心按鈕 */}
+              <motion.button
+                onClick={handleLike}
+                disabled={isLiking}
+                whileTap={{ scale: 0.8 }}
+                className="flex items-center gap-1.5 text-sm"
+              >
+                <motion.div
+                  animate={hasLiked ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                >
+                  <Heart
+                    className={`h-5 w-5 transition-colors ${hasLiked ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-400'}`}
+                  />
+                </motion.div>
+                <span className={hasLiked ? 'text-red-500' : 'text-muted-foreground'}>
+                  {likesCount}
+                </span>
+              </motion.button>
 
               {/* 傳遞瓶：顯示對話鏈 */}
               {bottle.bottle_type === 'relay' && (

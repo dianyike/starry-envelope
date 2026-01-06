@@ -17,6 +17,7 @@ export type InteractionType =
   | 'thrown_back'   // 扔回海里
   | 'disliked'      // 厭惡
   | 'reported'      // 檢舉
+  | 'liked'         // 愛心
 
 export interface Database {
   public: {
@@ -64,6 +65,7 @@ export interface Database {
           relay_count: number
           current_holder_id: string | null
           status: BottleStatus
+          likes_count: number
           created_at: string
         }
         Insert: {
@@ -79,6 +81,7 @@ export interface Database {
           relay_count?: number
           current_holder_id?: string | null
           status?: BottleStatus
+          likes_count?: number
           created_at?: string
         }
         Update: {
@@ -94,6 +97,7 @@ export interface Database {
           relay_count?: number
           current_holder_id?: string | null
           status?: BottleStatus
+          likes_count?: number
           created_at?: string
         }
       }
