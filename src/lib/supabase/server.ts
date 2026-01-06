@@ -28,12 +28,15 @@ export async function createClient() {
   )
 }
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+
 /**
  * 取得當前用戶 ID（透過 Supabase Auth）
  * 注意：匿名登入已在 proxy.ts 中處理，這裡只負責讀取
+ * @param existingClient - 可選，傳入已存在的 client 避免重複建立
  */
-export async function getAuthUserId(): Promise<string> {
-  const supabase = await createClient()
+export async function getAuthUserId(existingClient?: SupabaseClient): Promise<string> {
+  const supabase = existingClient ?? await createClient()
 
   const {
     data: { user },

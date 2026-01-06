@@ -1,8 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/user'
+import { createClient, getAuthUserId } from '@/lib/supabase/server'
 import type { BottleType, BottleStatus } from '@/types/database'
 import { z } from 'zod'
 
@@ -91,7 +90,7 @@ export async function throwBottle(input: ThrowBottleInput) {
   }
 
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   await ensureUserProfile(supabase, userId)
 
@@ -190,7 +189,7 @@ export async function replyToBottle(bottleId: string, content: string, authorNam
   }
 
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('replies').insert({
@@ -219,7 +218,7 @@ export async function replyToBottle(bottleId: string, content: string, authorNam
 
 export async function throwBackBottle(bottleId: string) {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 記錄互動
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -240,7 +239,7 @@ export async function throwBackBottle(bottleId: string) {
 
 export async function dislikeBottle(bottleId: string) {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 記錄互動
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -271,7 +270,7 @@ export async function reportBottle(bottleId: string, reason: string) {
   }
 
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('reports').insert({
@@ -299,13 +298,18 @@ export async function reportBottle(bottleId: string, reason: string) {
 
 export async function getUserProfile() {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
-  await ensureUserProfile(supabase, userId)
-
+  // 使用 upsert 確保 profile 存在，同時取得資料（單次查詢）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (supabase as any)
     .from('profiles')
+    .upsert({
+      id: userId,
+      fishing_nets: 6,
+      points: 0,
+      nets_reset_at: new Date().toISOString(),
+    }, { onConflict: 'id', ignoreDuplicates: true })
     .select('id, nickname, city, fishing_nets, points')
     .eq('id', userId)
     .single() as { data: { id: string; nickname: string | null; city: string | null; fishing_nets: number; points: number } | null }
@@ -320,7 +324,7 @@ export async function updateProfile(input: { nickname?: string; city?: string | 
   }
 
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 建立更新物件，只包含有值的欄位
   const updateData: { nickname?: string; city?: string | null } = {}
@@ -347,7 +351,7 @@ export async function updateProfile(input: { nickname?: string; city?: string | 
 
 export async function getBeachBottles() {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: beachItems } = await (supabase as any)
@@ -386,7 +390,7 @@ export interface BottleWithReplies extends Bottle {
 
 export async function getMyBottles(): Promise<BottleWithReplies[]> {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bottles } = await (supabase as any)
@@ -430,7 +434,7 @@ export async function getUnreadRepliesCount(): Promise<number> {
 
 export async function markRepliesAsRead(bottleId: string) {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 確認瓶子屬於該用戶
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -456,7 +460,7 @@ export async function markRepliesAsRead(bottleId: string) {
 
 export async function retrieveBottle(bottleId: string) {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 確認瓶子屬於該用戶且正在漂流
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -493,7 +497,7 @@ export async function retrieveBottle(bottleId: string) {
 
 export async function deleteBottle(bottleId: string) {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 確認瓶子屬於該用戶且已收回
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -544,7 +548,7 @@ export async function deleteBottle(bottleId: string) {
 
 export async function refloatBottle(bottleId: string) {
   const supabase = await createClient()
-  const userId = await getUserId()
+  const userId = await getAuthUserId(supabase)
 
   // 確認瓶子屬於該用戶且已收回
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
