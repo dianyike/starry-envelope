@@ -155,6 +155,10 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
       setHasLiked(previousLiked)
       setLikesCount(previousCount)
       toast.error(result.error)
+    } else {
+      // 使用伺服器返回的真實數據確保同步
+      setHasLiked(result.liked)
+      setLikesCount(result.likesCount)
     }
     setIsLiking(false)
   }
@@ -228,7 +232,6 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
               {/* 愛心按鈕 */}
               <motion.button
                 onClick={handleLike}
-                disabled={isLiking}
                 whileTap={{ scale: 0.8 }}
                 className="flex items-center gap-1.5 text-sm"
               >

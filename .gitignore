@@ -43,6 +43,5 @@ next-env.d.ts
 
 # project docs (local only)
 CLAUDE.md
-CHANGELOG.md
 .mcp.json
 .claude
