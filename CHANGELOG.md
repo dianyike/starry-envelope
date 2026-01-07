@@ -5,6 +5,34 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.9.2] - 2026-01-08
+
+### Fixed
+
+- **修復個人資料漁網數量顯示為 0 的 bug**
+  - 問題：海灘顯示 6 個漁網，但個人資料顯示 0
+  - 原因：`getUserProfile()` 使用 `upsert` + `ignoreDuplicates: true`，當記錄存在時不返回數據
+  - 修正：改為先查詢 profile，不存在時才 insert
+
+### Changed
+
+- **資料庫效能優化**（Supabase Advisor 問題從 54 降至 15）
+  - 啟用 `signup_rate_limits` 表的 RLS（修復 ERROR 等級問題）
+  - 優化 27 個 RLS 策略：將 `auth.uid()` 改為 `(select auth.uid())` 避免每行重複評估
+  - 合併 4 個重複的 permissive 策略（bottle_interactions、bottles、replies）
+  - 移除 2 個重複索引、12 個未使用索引
+  - 新增 3 個外鍵索引（replies.author_id、reports.reporter_id、bottles.current_holder_id）
+  - 設定 `update_bottle_likes_count` 函數的 `search_path = public`
+
+### Database Migrations
+
+- `20250108_enable_signup_rate_limits_rls.sql` - 啟用 RLS
+- `20250108_optimize_rls_auth_uid_performance.sql` - RLS 效能優化
+- `20250108_merge_duplicate_policies_and_cleanup.sql` - 合併策略 + 移除重複索引 + 函數修復
+- `20250108_fix_indexes_add_fk_remove_unused.sql` - 索引清理與新增
+
+---
+
 ## [1.9.1] - 2026-01-08
 
 ### Fixed
