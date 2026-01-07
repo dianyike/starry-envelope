@@ -83,8 +83,14 @@ BEGIN
 END;
 $$;
 
+-- 🔒 SEC-001: 限制 RPC 執行權限（只允許 service_role）
+REVOKE EXECUTE ON FUNCTION push_bottles_to_beach() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION push_bottles_to_beach() FROM anon;
+REVOKE EXECUTE ON FUNCTION push_bottles_to_beach() FROM authenticated;
+GRANT EXECUTE ON FUNCTION push_bottles_to_beach() TO service_role;
+
 -- 4. 建立 cron job（每天早上 8:00 UTC+8 = 00:00 UTC 執行）
--- 注意：pg_cron 使用 UTC 時區
+-- 🔒 SEC-002: 使用獨立 cron_secret 驗證（不暴露 service_role_key）
 SELECT cron.schedule(
   'push-bottles-to-beach',  -- job 名稱
   '0 0 * * *',              -- 每天 00:00 UTC (台灣時間 08:00)
@@ -96,7 +102,7 @@ SELECT cron.schedule(
       'Authorization', 'Bearer ' || (
         SELECT decrypted_secret
         FROM vault.decrypted_secrets
-        WHERE name = 'service_role_key'
+        WHERE name = 'cron_secret'
       )
     ),
     body := '{}'::jsonb
@@ -105,24 +111,23 @@ SELECT cron.schedule(
 );
 
 -- =====================================================
--- 手動設定步驟（需要在 Supabase Dashboard 執行）
+-- 🔒 安全設定步驟（需要在 Supabase Dashboard 執行）
 -- =====================================================
 --
--- 1. 將 service_role_key 存入 Vault：
---    前往 Project Settings > API > service_role key
---    複製 key 後，執行：
+-- 1. 產生並存入 cron_secret（用於 cron job 驗證）：
+--    前往 Dashboard > Vault，新增 secret：
+--    - Name: cron_secret
+--    - Secret: 自行產生一個強隨機字串（例如：openssl rand -base64 32）
 --
---    INSERT INTO vault.secrets (name, secret)
---    VALUES ('service_role_key', 'YOUR_SERVICE_ROLE_KEY_HERE')
---    ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
+-- 2. 設定 Edge Function 環境變數：
+--    前往 Dashboard > Edge Functions > push-bottles > Settings
+--    新增環境變數：
+--    - CRON_SECRET: （與 Vault 中的 cron_secret 相同）
 --
--- 2. 部署 Edge Function：
---    cd supabase
+-- 3. 部署 Edge Function：
 --    supabase functions deploy push-bottles --project-ref jbqvqievsuzwlmgeenbq
 --
--- 3. 驗證 cron job：
+-- 4. 驗證 cron job：
 --    SELECT * FROM cron.job;
 --
--- 4. 手動測試推送：
---    SELECT push_bottles_to_beach();
 -- =====================================================
