@@ -28,6 +28,7 @@ import {
 } from '@/lib/actions/bottle'
 import { toast } from 'sonner'
 import { FishingHook, RefreshCw, Heart } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { motion } from 'motion/react'
 
 const BOTTLE_TYPE_LABELS: Record<string, string> = {
@@ -204,7 +205,7 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
                 </div>
 
                 <Button onClick={handleFish} className="w-full" size="lg" disabled={isLoading}>
-                  {isLoading ? '撈取中...' : secretCode.trim() ? '搜尋暗號瓶' : '撈一個瓶子'}
+                  {isLoading ? <><Spinner /> 撈取中...</> : secretCode.trim() ? '搜尋暗號瓶' : '撈一個瓶子'}
                 </Button>
               </div>
             </div>
@@ -257,8 +258,8 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
                   </div>
 
                   {isLoadingReplies ? (
-                    <div className="text-center text-sm text-muted-foreground">
-                      載入對話鏈...
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Spinner /> 載入對話鏈...
                     </div>
                   ) : relayReplies.length > 0 ? (
                     <div className="space-y-2">
@@ -294,7 +295,7 @@ export function FishBottleDialog({ open, onOpenChange }: FishBottleDialogProps) 
 
               <div className="flex flex-col gap-2">
                 <Button onClick={handleReply} className="w-full" disabled={isReplying || !reply.trim()}>
-                  {isReplying ? '發送中...' : bottle.bottle_type === 'relay' ? '傳遞' : '回覆'}
+                  {isReplying ? <><Spinner /> 發送中...</> : bottle.bottle_type === 'relay' ? '傳遞' : '回覆'}
                 </Button>
                 <div className="flex w-full gap-2">
                   <Button variant="outline" className="flex-1" onClick={handleThrowBack}>

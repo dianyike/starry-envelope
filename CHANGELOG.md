@@ -5,6 +5,26 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.10.1] - 2026-01-07
+
+### Added
+
+- **Spinner 載入動畫元件**
+  - 新增 `src/components/ui/spinner.tsx`
+  - 使用 lucide-react `LoaderIcon` + `animate-spin` 動畫
+  - 包含無障礙屬性（`role="status"`, `aria-label`）
+
+### Changed
+
+- **載入狀態改為動畫 Spinner**
+  - `throw-bottle-dialog.tsx` - 扔出按鈕載入狀態
+  - `fish-bottle-dialog.tsx` - 撈取按鈕、對話鏈載入、回覆按鈕載入狀態
+  - `my-bottles-dialog.tsx` - 列表載入狀態
+  - `beach-dialog.tsx` - 頁面載入狀態
+  - `profile-dialog.tsx` - 頁面載入、儲存按鈕載入狀態
+
+---
+
 ## [1.10.0] - 2026-01-07
 
 ### Security

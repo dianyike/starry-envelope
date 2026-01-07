@@ -37,6 +37,7 @@ import {
 import { triggerNavbarRefresh } from '@/components/staggered-menu'
 import { BottleWine, Heart } from 'lucide-react'
 import { toast } from 'sonner'
+import { Spinner } from '@/components/ui/spinner'
 
 const BOTTLE_TYPE_LABELS: Record<string, string> = {
   normal: '普通瓶',
@@ -161,7 +162,8 @@ export function MyBottlesDialog({ open, onOpenChange }: MyBottlesDialogProps) {
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center gap-2 py-12">
+            <Spinner className="size-5" />
             <span className="text-muted-foreground">載入中...</span>
           </div>
         ) : bottles.length > 0 ? (

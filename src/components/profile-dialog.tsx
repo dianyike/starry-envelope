@@ -21,6 +21,7 @@ import {
 import { getUserProfile, updateProfile } from '@/lib/actions/bottle'
 import { toast } from 'sonner'
 import { User, MapPin, Fish } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 const TAIWAN_CITIES = [
   '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市',
@@ -91,8 +92,9 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-muted-foreground">載入中...</div>
+          <div className="flex items-center justify-center gap-2 py-8">
+            <Spinner className="size-5" />
+            <span className="text-muted-foreground">載入中...</span>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -152,7 +154,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             </div>
 
             <Button type="submit" className="w-full" disabled={isSaving}>
-              {isSaving ? '儲存中...' : '儲存'}
+              {isSaving ? <><Spinner /> 儲存中...</> : '儲存'}
             </Button>
           </form>
         )}

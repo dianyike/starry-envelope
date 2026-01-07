@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { getUserProfile, getBeachBottles } from '@/lib/actions/bottle'
 import { TreePalm } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 const BOTTLE_TYPE_LABELS: Record<string, string> = {
   normal: '普通瓶',
@@ -80,7 +81,8 @@ export function BeachDialog({ open, onOpenChange }: BeachDialogProps) {
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center gap-2 py-12">
+            <Spinner className="size-5" />
             <span className="text-muted-foreground">載入中...</span>
           </div>
         ) : (

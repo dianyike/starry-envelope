@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { throwBottle, getUserProfile } from '@/lib/actions/bottle'
 import { toast } from 'sonner'
+import { Spinner } from '@/components/ui/spinner'
 import type { BottleType } from '@/types/database'
 
 const TAIWAN_CITIES = [
@@ -195,7 +196,7 @@ export function ThrowBottleDialog({ open, onOpenChange }: ThrowBottleDialogProps
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? '扔出中...' : '扔出瓶子'}
+            {isLoading ? <><Spinner /> 扔出中...</> : '扔出瓶子'}
           </Button>
         </form>
       </DialogContent>
