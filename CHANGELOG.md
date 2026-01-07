@@ -5,6 +5,29 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.11.1] - 2026-01-07
+
+### Security
+
+- **🔒 海灘推送安全修復**
+  - SEC-001: Edge Function 限制只接受 POST 方法
+  - SEC-002: 改用獨立 `CRON_SECRET` 驗證（不暴露 service_role_key）
+  - SEC-003: 驗證所有必要環境變數（SUPABASE_URL、SUPABASE_SERVICE_ROLE_KEY、CRON_SECRET）
+  - SEC-004: 移除 CORS headers（內部 cron 呼叫不需要）
+  - SEC-005: RPC 撤銷 PUBLIC/anon/authenticated 執行權限
+  - SEC-006: RPC 只授權 service_role 執行
+
+### Changed
+
+- Cron job 改用 Vault 中的 `cron_secret` 而非 `service_role_key`
+- Edge Function 嚴格比對完整 token
+
+### Database Migrations
+
+- `20260107_secure_push_bottles_rpc.sql` - 更新 cron job 使用 cron_secret
+
+---
+
 ## [1.11.0] - 2026-01-07
 
 ### Added
