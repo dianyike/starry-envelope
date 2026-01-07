@@ -5,6 +5,31 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.11.0] - 2026-01-07
+
+### Added
+
+- **海灘瓶子自動推送功能**
+  - 每天 08:00（台灣時間）自動推送 0~3 瓶到用戶海灘
+  - 使用 pg_cron + pg_net + Edge Function 架構
+  - 排除規則：自己的瓶子、已互動過的、已在海灘的
+  - 只推送 `is_pushable = true` 的瓶子（發洩瓶除外）
+- **新增 Supabase Edge Function**
+  - `supabase/functions/push-bottles/` - 海灘推送 Edge Function
+- **新增 RPC 函數**
+  - `push_bottles_to_beach()` - 執行推送邏輯（遍歷用戶、隨機選瓶、批次插入）
+- **新增資料庫擴展**
+  - `pg_cron` - 定時任務排程
+  - `pg_net` - 非同步 HTTP 請求
+- **beach 表新增唯一約束**
+  - `beach_user_bottle_unique (user_id, bottle_id)` - 避免重複推送
+
+### Database Migrations
+
+- `20260107_add_beach_push_cron.sql` - 海灘推送功能（擴展 + RPC + cron job）
+
+---
+
 ## [1.10.1] - 2026-01-07
 
 ### Added
@@ -156,28 +181,28 @@
 
 ### Added
 
-- **Terms and Privacy Pages**
-  - `/terms` - Service terms page (Chinese)
-  - `/privacy` - Privacy policy page (Chinese)
-  - Footer links on home page (Terms, Privacy, GitHub)
-- **Documentation Files**
-  - `README.md` - Project introduction with cover image
-  - `LICENSE` - MIT License
-  - `TERMS.md` - Service terms (Chinese)
-  - `PRIVACY.md` - Privacy policy (Chinese)
-  - `.env.example` - Environment variables template
+- **服務條款與隱私權頁面**
+  - `/terms` - 服務條款頁面
+  - `/privacy` - 隱私權政策頁面
+  - 首頁頁尾連結（服務條款、隱私權政策、GitHub）
+- **專案文件**
+  - `README.md` - 專案介紹與封面圖片
+  - `LICENSE` - MIT 授權條款
+  - `TERMS.md` - 服務條款
+  - `PRIVACY.md` - 隱私權政策
+  - `.env.example` - 環境變數範本
 
 ### Changed
 
-- **Performance Optimization**
-  - `getAuthUserId()` now accepts existing Supabase client to avoid duplicate connections
-  - `getUserProfile()` uses `upsert` to reduce queries from 2 to 1
-  - All server actions reuse the same Supabase client
-  - Beach and Profile dialogs load significantly faster
+- **效能優化**
+  - `getAuthUserId()` 可接收現有 Supabase client，避免重複連線
+  - `getUserProfile()` 使用 `upsert` 將查詢從 2 次減少到 1 次
+  - 所有 Server Actions 重複使用同一個 Supabase client
+  - 海灘與個人資料對話框載入速度大幅提升
 
 ### Removed
 
-- `user.ts` wrapper function (now using `getAuthUserId()` directly from server.ts)
+- 移除 `user.ts` 包裝函式（改為直接從 server.ts 使用 `getAuthUserId()`）
 
 ---
 
