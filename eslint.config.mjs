@@ -15,6 +15,18 @@ const eslintConfig = defineConfig([
     // Ignore Claude Code skills templates
     ".claude/**",
   ]),
+  // 允許以底線開頭的未使用變數（用於解構時丟棄不需要的欄位）
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

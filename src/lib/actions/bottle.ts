@@ -175,7 +175,7 @@ export async function fishBottle(secretCode?: string): Promise<{ error: string }
   }
 
   // 移除 RPC 額外回傳的欄位
-  const { nets_remaining: _, is_new_bottle: __, ...bottle } = data
+  const { nets_remaining: _netsRemaining, is_new_bottle: _isNewBottle, ...bottle } = data
 
   revalidatePath('/fish')
   return { data: bottle as Bottle }
