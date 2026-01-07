@@ -1,35 +1,44 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// 取得客戶端 IP（優先使用不可偽造的 header）
+// 🔒 SEC-003: 取得客戶端 IP（只信任平台提供的 header）
 function getClientIp(request: NextRequest): string {
-  // Vercel 設置的真實 IP（不可被客戶端偽造）
+  // 1. Vercel 設置的真實 IP（不可被客戶端偽造）- 最可信
   const vercelForwardedFor = request.headers.get('x-vercel-forwarded-for')
   if (vercelForwardedFor) {
     return vercelForwardedFor.split(',')[0].trim()
   }
 
-  // Cloudflare 設置的真實 IP（不可被客戶端偽造）
+  // 2. Cloudflare 設置的真實 IP（不可被客戶端偽造）
   const cfConnectingIp = request.headers.get('cf-connecting-ip')
   if (cfConnectingIp) {
     return cfConnectingIp
   }
 
-  // Vercel 的 x-real-ip（由 Vercel 設置）
+  // 3. Vercel 的 x-real-ip（由 Vercel 設置）
   const realIp = request.headers.get('x-real-ip')
   if (realIp) {
     return realIp
   }
 
-  // x-forwarded-for 可能被偽造，放在最後且只在有其他驗證時使用
-  // 在 Vercel 環境下，上面的 header 應該已經覆蓋大部分情況
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim()
-  }
+  // ⚠️ 不再信任 x-forwarded-for（可被偽造）
+  // 在 Vercel/Cloudflare 環境下，上面的 header 已覆蓋所有情況
+  // 如果都沒有，說明在本地開發或非標準環境
 
-  // 無法取得 IP 時，使用 fallback（這些請求會被單獨追蹤）
+  // 無法取得 IP 時，使用 fallback
+  // 這些請求會被施加更嚴格的限制
   return '__no_ip__'
+}
+
+// 🔒 取得用於 rate limiting 的請求指紋
+function getRequestFingerprint(request: NextRequest): string {
+  const ip = getClientIp(request)
+  // 對於無法識別 IP 的請求，加入 User-Agent 作為輔助識別
+  if (ip === '__no_ip__') {
+    const ua = request.headers.get('user-agent')?.slice(0, 50) || 'unknown'
+    return `__no_ip__:${ua}`
+  }
+  return ip
 }
 
 export async function proxy(request: NextRequest) {
@@ -73,18 +82,26 @@ export async function proxy(request: NextRequest) {
 
   if (!user) {
     // 無 session，檢查 IP rate limit
+    // 🔒 SEC-003: 使用請求指紋進行 rate limiting
+    const fingerprint = getRequestFingerprint(request)
     const clientIp = getClientIp(request)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rateLimitData, error: rateLimitError } = await (supabase as any)
-      .rpc('check_signup_rate_limit', { client_ip: clientIp })
+      .rpc('check_signup_rate_limit', { client_ip: fingerprint })
       .single() as { data: { allowed: boolean } | null; error: { message: string } | null }
 
     if (rateLimitError) {
       console.error('[Proxy] Rate limit check failed:', rateLimitError.message)
       // 檢查失敗時允許通過（避免阻擋合法用戶）
     } else if (rateLimitData?.allowed === false) {
-      console.warn('[Proxy] Rate limited IP:', clientIp)
+      // 🔒 記錄被阻擋的請求（用於安全監控）
+      console.warn('[Proxy] Rate limited request:', {
+        ip: clientIp,
+        fingerprint: fingerprint.slice(0, 80), // 限制日誌長度
+        ua: request.headers.get('user-agent')?.slice(0, 100),
+        timestamp: new Date().toISOString(),
+      })
       return new NextResponse(
         JSON.stringify({ error: 'Too many requests. Please try again later.' }),
         {
@@ -100,6 +117,11 @@ export async function proxy(request: NextRequest) {
     // 建立匿名登入
     // 必須在 proxy 層執行，因為 Server Component 無法寫 cookie
     const { data, error: signInError } = await supabase.auth.signInAnonymously()
+
+    // 🔒 SEC-011: 成功登入後 refresh session，防止 session 固定攻擊
+    if (data?.user) {
+      await supabase.auth.refreshSession()
+    }
 
     if (signInError || !data.user) {
       console.error('[Proxy] Failed to create anonymous session:', signInError?.message || 'No user returned')

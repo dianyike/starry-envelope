@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient, getAuthUserId } from '@/lib/supabase/server'
 import type { BottleType, BottleStatus } from '@/types/database'
 import { z } from 'zod'
+import { verifyCsrf } from '@/lib/csrf'
+import { sanitizeDbError, sanitizeRpcError } from '@/lib/errors'
 
 // 輸入驗證 schemas
 const throwBottleSchema = z.object({
@@ -84,6 +86,9 @@ async function ensureUserProfile(supabase: ReturnType<typeof createClient> exten
 }
 
 export async function throwBottle(input: ThrowBottleInput) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   // 驗證輸入
   const parsed = throwBottleSchema.safeParse(input)
   if (!parsed.success) {
@@ -114,7 +119,7 @@ export async function throwBottle(input: ThrowBottleInput) {
     .single()
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   revalidatePath('/throw')
@@ -122,6 +127,9 @@ export async function throwBottle(input: ThrowBottleInput) {
 }
 
 export async function fishBottle(secretCode?: string): Promise<{ error: string } | { data: Bottle }> {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   // 驗證輸入
   const parsed = fishBottleSchema.safeParse({ secretCode })
   if (!parsed.success) {
@@ -138,10 +146,7 @@ export async function fishBottle(secretCode?: string): Promise<{ error: string }
       .single() as { data: Bottle | null; error: { message: string } | null }
 
     if (error) {
-      if (error.message === 'Too many attempts. Please try again later.') {
-        return { error: '嘗試次數過多，請一小時後再試' }
-      }
-      return { error: '找不到符合這個暗號的瓶子' }
+      return { error: sanitizeRpcError(error, '找不到符合這個暗號的瓶子') }
     }
 
     if (!data) {
@@ -162,13 +167,7 @@ export async function fishBottle(secretCode?: string): Promise<{ error: string }
   }
 
   if (error) {
-    if (error.message === 'No fishing nets remaining') {
-      return { error: '今日漁網已用完，明天再來吧！' }
-    }
-    if (error.message === 'No bottles available') {
-      return { error: '海裡沒有瓶子了，稍後再試試吧！' }
-    }
-    return { error: error.message }
+    return { error: sanitizeRpcError(error, '海裡沒有瓶子了，稍後再試試吧！') }
   }
 
   if (!data) {
@@ -183,6 +182,9 @@ export async function fishBottle(secretCode?: string): Promise<{ error: string }
 }
 
 export async function replyToBottle(bottleId: string, content: string, authorName?: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   // 驗證輸入
   const parsed = replySchema.safeParse({ bottleId, content, authorName })
   if (!parsed.success) {
@@ -201,7 +203,7 @@ export async function replyToBottle(bottleId: string, content: string, authorNam
   })
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   // 記錄互動
@@ -218,20 +220,34 @@ export async function replyToBottle(bottleId: string, content: string, authorNam
 }
 
 export async function throwBackBottle(bottleId: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
-  // 記錄互動
+  // 🔒 SEC-008: 先釋放 holder（如果是傳遞瓶），確保操作順序正確
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from('bottle_interactions').insert({
+  const { error: releaseError } = await (supabase as any)
+    .rpc('release_relay_bottle', { p_bottle_id: bottleId }) as { error: { message: string } | null }
+
+  if (releaseError) {
+    console.error('[throwBackBottle] Failed to release relay bottle:', releaseError.message)
+    return { error: sanitizeRpcError(releaseError) }
+  }
+
+  // 釋放成功後記錄互動
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: interactionError } = await (supabase as any).from('bottle_interactions').insert({
     bottle_id: bottleId,
     user_id: userId,
     interaction_type: 'thrown_back',
   })
 
-  // 如果是傳遞瓶，釋放 holder 讓瓶子繼續漂流
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).rpc('release_relay_bottle', { p_bottle_id: bottleId })
+  if (interactionError) {
+    console.error('[throwBackBottle] Failed to record interaction:', interactionError.message)
+    // 互動記錄失敗不阻擋操作，但記錄錯誤
+  }
 
   revalidatePath('/fish')
   revalidatePath('/beach')
@@ -239,24 +255,38 @@ export async function throwBackBottle(bottleId: string) {
 }
 
 export async function dislikeBottle(bottleId: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
-  // 記錄互動
+  // 🔒 SEC-008: 先釋放 holder（如果是傳遞瓶），確保操作順序正確
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from('bottle_interactions').insert({
+  const { error: releaseError } = await (supabase as any)
+    .rpc('release_relay_bottle', { p_bottle_id: bottleId }) as { error: { message: string } | null }
+
+  if (releaseError) {
+    console.error('[dislikeBottle] Failed to release relay bottle:', releaseError.message)
+    return { error: sanitizeRpcError(releaseError) }
+  }
+
+  // 釋放成功後記錄互動
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: interactionError } = await (supabase as any).from('bottle_interactions').insert({
     bottle_id: bottleId,
     user_id: userId,
     interaction_type: 'disliked',
   })
 
+  if (interactionError) {
+    console.error('[dislikeBottle] Failed to record interaction:', interactionError.message)
+    // 互動記錄失敗不阻擋操作，但記錄錯誤
+  }
+
   // 從海灘移除
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any).from('beach').delete().eq('bottle_id', bottleId).eq('user_id', userId)
-
-  // 如果是傳遞瓶，釋放 holder 讓瓶子繼續漂流
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).rpc('release_relay_bottle', { p_bottle_id: bottleId })
 
   revalidatePath('/fish')
   revalidatePath('/beach')
@@ -264,6 +294,9 @@ export async function dislikeBottle(bottleId: string) {
 }
 
 export async function reportBottle(bottleId: string, reason: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   // 驗證輸入
   const parsed = reportSchema.safeParse({ bottleId, reason })
   if (!parsed.success) {
@@ -281,7 +314,7 @@ export async function reportBottle(bottleId: string, reason: string) {
   })
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   // 記錄互動
@@ -330,6 +363,9 @@ export async function getUserProfile() {
 }
 
 export async function updateProfile(input: { nickname?: string; city?: string | null }) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const parsed = updateProfileSchema.safeParse(input)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || '輸入驗證失敗' }
@@ -338,7 +374,9 @@ export async function updateProfile(input: { nickname?: string; city?: string | 
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
-  // 建立更新物件，只包含有值的欄位
+  // 🔒 SEC-005: 白名單欄位控制
+  // 只允許更新這些欄位，新增欄位時需明確加入白名單
+  // 禁止修改：fishing_nets, points, nets_reset_at, created_at
   const updateData: { nickname?: string; city?: string | null } = {}
   if (parsed.data.nickname !== undefined) {
     updateData.nickname = parsed.data.nickname || undefined
@@ -354,7 +392,7 @@ export async function updateProfile(input: { nickname?: string; city?: string | 
     .eq('id', userId)
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   revalidatePath('/')
@@ -445,6 +483,9 @@ export async function getUnreadRepliesCount(): Promise<number> {
 }
 
 export async function markRepliesAsRead(bottleId: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
@@ -471,6 +512,9 @@ export async function markRepliesAsRead(bottleId: string) {
 }
 
 export async function retrieveBottle(bottleId: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
@@ -500,7 +544,7 @@ export async function retrieveBottle(bottleId: string) {
     .eq('author_id', userId)
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   revalidatePath('/my-bottles')
@@ -508,6 +552,9 @@ export async function retrieveBottle(bottleId: string) {
 }
 
 export async function deleteBottle(bottleId: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
@@ -551,7 +598,7 @@ export async function deleteBottle(bottleId: string) {
     .eq('author_id', userId)
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   revalidatePath('/my-bottles')
@@ -559,6 +606,9 @@ export async function deleteBottle(bottleId: string) {
 }
 
 export async function refloatBottle(bottleId: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
@@ -588,7 +638,7 @@ export async function refloatBottle(bottleId: string) {
     .eq('author_id', userId)
 
   if (error) {
-    return { error: (error as { message: string }).message }
+    return { error: sanitizeDbError(error) }
   }
 
   revalidatePath('/my-bottles')
@@ -598,6 +648,9 @@ export async function refloatBottle(bottleId: string) {
 // ===== 傳遞瓶相關函數 =====
 
 export async function replyToRelayBottle(bottleId: string, content: string, authorName?: string) {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const parsed = replySchema.safeParse({ bottleId, content, authorName })
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || '輸入驗證失敗' }
@@ -615,10 +668,7 @@ export async function replyToRelayBottle(bottleId: string, content: string, auth
     .single() as { data: { success: boolean; relay_count: number } | null; error: { message: string } | null }
 
   if (error) {
-    if (error.message === 'Not the current holder') {
-      return { error: '你不是當前傳遞者' }
-    }
-    return { error: error.message }
+    return { error: sanitizeRpcError(error, '回覆失敗') }
   }
 
   if (!data) {
@@ -645,6 +695,9 @@ export async function getRelayBottleReplies(bottleId: string): Promise<Reply[]> 
 
 // 點讚/取消點讚
 export async function toggleLikeBottle(bottleId: string): Promise<{ liked: boolean; likesCount: number } | { error: string }> {
+  // 🔒 CSRF 驗證
+  await verifyCsrf()
+
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 

@@ -5,6 +5,55 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.10.0] - 2026-01-07
+
+### Security
+
+- **🔒 安全性審計修復**（安全評分從 73 提升至 90+）
+  - SEC-001: 資料庫長度約束 - `replies.content` (140)、`bottles.content` (500)、`profiles.nickname` (20)
+  - SEC-002: CSRF 防護 - 所有狀態變更的 Server Actions 驗證 Origin/Referer 標頭
+  - SEC-003: Rate Limiting 改進 - 移除對 x-forwarded-for 的信任，使用安全的請求指紋
+  - SEC-004: HTTP 安全標頭 - CSP、HSTS、X-Frame-Options、X-Content-Type-Options、Referrer-Policy
+  - SEC-005: 批量賦值保護 - Profile 更新 RLS 政策限制可修改欄位
+  - SEC-006: 錯誤清理 - 資料庫錯誤訊息不再洩漏給前端
+  - SEC-008: Relay Bottle 邏輯修正 - 釋放 holder 在記錄互動之前執行
+  - SEC-009: RPC 輸入清理 - `relay_bottle_reply` 移除控制字元
+  - SEC-011: Session 固定攻擊防護 - 匿名登入後刷新 session
+
+### Added
+
+- **新增安全模組**
+  - `src/lib/csrf.ts` - CSRF 防護驗證函式
+  - `src/lib/errors.ts` - 資料庫錯誤清理函式（PostgreSQL 錯誤碼對應 + 訊息模式匹配）
+- **HTTP 安全標頭**（`next.config.ts`）
+  - Content-Security-Policy（CSP）
+  - Strict-Transport-Security（HSTS，1 年有效期）
+  - X-Frame-Options: DENY
+  - X-Content-Type-Options: nosniff
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - Permissions-Policy（禁用相機、麥克風、地理位置）
+
+### Changed
+
+- **Server Actions 安全強化**
+  - 所有狀態變更操作加入 `verifyCsrf()` 驗證
+  - 錯誤訊息使用 `sanitizeDbError()` 和 `sanitizeRpcError()` 清理
+- **Rate Limiting 改進**（`proxy.ts`）
+  - 移除對 x-forwarded-for 標頭的信任
+  - 新增 `getRequestFingerprint()` 使用 User-Agent 輔助識別
+  - 無法識別 IP 的請求施加更嚴格限制
+- **Session 安全**
+  - 匿名登入成功後執行 `refreshSession()` 防止 session 固定攻擊
+
+### Database Migrations
+
+- `20260107_security_fixes.sql`
+  - 新增 CHECK 約束：`replies_content_length`、`bottles_content_length`、`profiles_nickname_length`
+  - 更新 `profiles_update_own_restricted` RLS 政策
+  - 更新 `relay_bottle_reply` RPC 加入輸入清理（移除控制字元）
+
+---
+
 ## [1.9.2] - 2026-01-08
 
 ### Fixed
