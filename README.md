@@ -1,8 +1,10 @@
 # 星夜信封 Starry Envelope
 
-![封面](./public/cover.png)
+[![封面](./public/cover.png)](https://starry-envelope.vercel.app)
 
 一個數位漂流瓶網站，讓用戶可以匿名發送和接收訊息。在星空下的碼頭，等待來自遠方的信。
+
+> 靈感來源：QQ 郵箱曾經的「漂流瓶」功能
 
 ## 功能特色
 
