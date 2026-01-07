@@ -301,21 +301,32 @@ export async function getUserProfile() {
   const supabase = await createClient()
   const userId = await getAuthUserId(supabase)
 
-  // 使用 upsert 確保 profile 存在，同時取得資料（單次查詢）
+  // 先查詢 profile
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: existingProfile } = await (supabase as any)
     .from('profiles')
-    .upsert({
+    .select('id, nickname, city, fishing_nets, points')
+    .eq('id', userId)
+    .single()
+
+  if (existingProfile) {
+    return existingProfile as { id: string; nickname: string | null; city: string | null; fishing_nets: number; points: number }
+  }
+
+  // 不存在則建立新 profile
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: newProfile } = await (supabase as any)
+    .from('profiles')
+    .insert({
       id: userId,
       fishing_nets: 6,
       points: 0,
       nets_reset_at: new Date().toISOString(),
-    }, { onConflict: 'id', ignoreDuplicates: true })
+    })
     .select('id, nickname, city, fishing_nets, points')
-    .eq('id', userId)
-    .single() as { data: { id: string; nickname: string | null; city: string | null; fishing_nets: number; points: number } | null }
+    .single()
 
-  return profile
+  return newProfile as { id: string; nickname: string | null; city: string | null; fishing_nets: number; points: number } | null
 }
 
 export async function updateProfile(input: { nickname?: string; city?: string | null }) {
