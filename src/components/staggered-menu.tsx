@@ -62,7 +62,7 @@ export function StaggeredMenu({ onOpenDialog }: StaggeredMenuProps) {
   const position = 'right'
   const offscreenX = 100 // positive for right, negative for left
   const colors = ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.6)']
-  const menuButtonColor = '#1c1917'
+  const menuButtonColor = '#ffffff'
   const openMenuButtonColor = '#1c1917'
   const accentColor = '#7c3aed'
 
@@ -353,7 +353,7 @@ export function StaggeredMenu({ onOpenDialog }: StaggeredMenuProps) {
             height={36}
           />
           <SparklesText
-            className="ml-2 text-3xl font-bold text-gray-200 drop-shadow-md"
+            className={`ml-2 text-3xl font-bold drop-shadow-md ${open ? 'text-black sm:text-gray-200' : 'text-gray-200'}`}
             colors={{ first: '#F4F4F4', second: '#f472b6' }}
             sparklesCount={6}
           >
